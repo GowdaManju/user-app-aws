@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 eclipse-temurin:17-jre-jammy
+FROM --platform=linux/amd64 public.ecr.aws/docker/library/eclipse-temurin:17-jre-jammy
 
 RUN groupadd --system appgroup && useradd --system --gid appgroup --no-create-home appuser
 
