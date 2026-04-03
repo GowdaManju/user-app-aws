@@ -14,22 +14,21 @@ phases:
       - ./gradlew bootJar -x test
       - echo "🔐 Logging in to ECR..."
       - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
-      # Get next build number
+      - IMAGE_COUNT=$(aws ecr describe-images --repository-name "$ECR_REPO_NAME" --region "$AWS_REGION" --query "length(imageDetails)" --output text 2>/dev/null || echo "0")
       - |
-        IMAGE_COUNT=$(aws ecr describe-images --repository-name "$ECR_REPO_NAME" --region "$AWS_REGION" --query "length(imageDetails)" --output text 2>/dev/null || echo "0")
         if [ "$IMAGE_COUNT" = "0" ] || [ "$IMAGE_COUNT" = "None" ]; then
           BUILD_NUMBER=1
         else
           LAST_NUMBER=$(aws ecr list-images --repository-name "$ECR_REPO_NAME" --region "$AWS_REGION" --query "imageIds[*].imageTag" --output text 2>/dev/null | tr '\t' '\n' | grep -oE "$SERVICE_NAME-[0-9]+" | grep -oE '[0-9]+$' | sort -n | tail -1 || echo "0")
           BUILD_NUMBER=$((LAST_NUMBER + 1))
         fi
-        IMAGE_TAG="$SERVICE_NAME-$(printf '%02d' $BUILD_NUMBER)"
-        LATEST_TAG="${SERVICE_NAME}_latest"
-        export IMAGE_TAG
-        export LATEST_TAG
-        export ECR_REPO="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO_NAME"
-      - echo "📌 Next image tag: $IMAGE_TAG"
-      - echo "📌 Latest tag:     $LATEST_TAG"
+      - IMAGE_TAG="$SERVICE_NAME-$(printf '%02d' $BUILD_NUMBER)"
+      - LATEST_TAG="${SERVICE_NAME}_latest"
+      - export IMAGE_TAG
+      - export LATEST_TAG
+      - export ECR_REPO="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO_NAME"
+      - echo "📌 Next image tag is $IMAGE_TAG"
+      - echo "📌 Latest tag is $LATEST_TAG"
 
   build:
     commands:
@@ -42,10 +41,10 @@ phases:
       - echo "🚀 Pushing image to ECR..."
       - docker push "$ECR_REPO:$LATEST_TAG"
       - docker push "$ECR_REPO:$IMAGE_TAG"
-      - echo "✅ Pushed: $ECR_REPO:$LATEST_TAG"
-      - echo "✅ Pushed: $ECR_REPO:$IMAGE_TAG"
+      - echo "✅ Pushed $ECR_REPO:$LATEST_TAG"
+      - echo "✅ Pushed $ECR_REPO:$IMAGE_TAG"
       - echo "🎉 Deployment complete!"
-      - echo "   Image: $ECR_REPO:$IMAGE_TAG"
+      - echo "   Image $ECR_REPO:$IMAGE_TAG"
 
 artifacts:
   files:
