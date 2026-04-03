@@ -1,0 +1,135 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.0.3'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.user'
+version = '0.0.1-SNAPSHOT'
+description = 'service discovery'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+ext {
+	set('springCloudVersion', "2025.1.0")
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	runtimeOnly 'com.h2database:h2'
+//	implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testRuntimeOnly 'com.h2database:h2'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+dependencyManagement {
+	imports {
+		mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+	}
+}
+
+// --- Integration Test Source Set ---
+sourceSets {
+	integrationTest {
+		java {
+			srcDir 'src/integrationTest/java'
+			compileClasspath += sourceSets.main.output + sourceSets.test.output
+			runtimeClasspath += sourceSets.main.output + sourceSets.test.output
+		}
+		resources {
+			srcDir 'src/integrationTest/resources'
+		}
+	}
+	systemIntegrationTest {
+		java {
+			srcDir 'src/systemIntegrationTest/java'
+			compileClasspath += sourceSets.main.output + sourceSets.test.output
+			runtimeClasspath += sourceSets.main.output + sourceSets.test.output
+		}
+		resources {
+			srcDir 'src/systemIntegrationTest/resources'
+		}
+	}
+	smokeTest {
+		java {
+			srcDir 'src/smokeTest/java'
+			compileClasspath += sourceSets.main.output
+			runtimeClasspath += sourceSets.main.output
+		}
+		resources {
+			srcDir 'src/smokeTest/resources'
+		}
+	}
+}
+
+configurations {
+	integrationTestImplementation.extendsFrom testImplementation
+	integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
+	systemIntegrationTestImplementation.extendsFrom testImplementation
+	systemIntegrationTestRuntimeOnly.extendsFrom testRuntimeOnly
+	smokeTestImplementation.extendsFrom testImplementation
+	smokeTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+tasks.named('processIntegrationTestResources') {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.named('processSystemIntegrationTestResources') {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.named('processSmokeTestResources') {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.register('integrationTest', Test) {
+	description = 'Runs integration tests.'
+	group = 'verification'
+	testClassesDirs = sourceSets.integrationTest.output.classesDirs
+	classpath = sourceSets.integrationTest.runtimeClasspath
+	useJUnitPlatform()
+	shouldRunAfter tasks.named('test')
+}
+
+tasks.register('systemIntegrationTest', Test) {
+	description = 'Runs system integration tests.'
+	group = 'verification'
+	testClassesDirs = sourceSets.systemIntegrationTest.output.classesDirs
+	classpath = sourceSets.systemIntegrationTest.runtimeClasspath
+	useJUnitPlatform()
+	shouldRunAfter tasks.named('integrationTest')
+}
+
+tasks.register('smokeTest', Test) {
+	description = 'Runs deployment smoke and sanity tests against a live environment.'
+	group = 'verification'
+	testClassesDirs = sourceSets.smokeTest.output.classesDirs
+	classpath = sourceSets.smokeTest.runtimeClasspath
+	useJUnitPlatform()
+	// Pass TARGET_URL from command line: ./gradlew smokeTest -DTARGET_URL=https://green-alb.example.com
+	systemProperty 'TARGET_URL', System.getProperty('TARGET_URL') ?: System.getenv('TARGET_URL') ?: 'http://localhost:8080'
+}
+
+tasks.named('check') {
+	dependsOn tasks.named('integrationTest')
+	dependsOn tasks.named('systemIntegrationTest')
+	// NOTE: smokeTest is NOT part of 'check' — it runs only during deployment
+}
+

@@ -1,0 +1,176 @@
+# Basic CloudFormation template
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  RepositoryName:
+    Description: sdc-pune/asid
+    Type: String
+    Default: sdc-pune/asid
+
+Resources:
+  # Creating a HTTP proxy instance
+  HttpsProxy:
+    Type: VWS::Proxy::Instance
+    Properties:
+      AllowedSuffixes:
+        - "github.com"
+        - "maven.org"
+        - "gradle.org"
+        - "gradle-dn.com"
+        - "bintray.com"
+        - "docker.io"
+        - "docker.com"
+        - "vwapps.io"
+        - "apache.org"
+      AllowedPorts:
+        - 443
+
+  # Creating proxy credentials
+  HttpsProxyCredentials:
+    Type: VWS::Proxy::Credentials
+    Properties:
+      Instance: !Ref HttpsProxy
+      Principals:
+        - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"
+
+  # Some VPC magic
+  CodeBuildVpc:
+    Type: VWS::VPC::Shared
+
+  CodeBuildSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for CodeBuild jobs
+      VpcId: !GetAtt CodeBuildVpc.VpcId
+
+  # Creating a CodeBuild project
+  SharedVpcAuth:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: NO_ARTIFACTS
+      # Specifying the proxy credentials
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        EnvironmentVariables:
+          - Name: HTTPS_PROXY
+            Value: !Sub
+              - "http://{{resolve:secretsmanager:${SecretArn}:SecretString:username:AWSCURRENT:}}:{{resolve:secretsmanager:${SecretArn}:SecretString:password:AWSCURRENT:}}@${Proxy}:8080"
+              - Proxy: !GetAtt [ HttpsProxy, DnsName ]
+                SecretArn: !GetAtt [ HttpsProxyCredentials, SecretArn ]
+          - Name: HTTPS_PROXY_HOST
+            Value: !GetAtt HttpsProxy.DnsName
+          - Name: HTTPS_PROXY_PORT
+            Value: 8080
+          - Name: HTTPS_PROXY_USER
+            Value: !Sub "${HttpsProxyCredentials.SecretArn}:username"
+            Type: SECRETS_MANAGER
+          - Name: HTTPS_PROXY_PASSWORD
+            Value: !Sub "${HttpsProxyCredentials.SecretArn}:password"
+            Type: SECRETS_MANAGER
+          - Name: NO_PROXY
+            Value: "amazonaws.com"
+          - Name: Account_Id
+            Value: !Ref "AWS::AccountId"
+
+        Image: "aws/codebuild/standard:5.0"
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+      # IAM and network properties
+      Name: "codebuild-auth-service"
+      ServiceRole: !ImportValue CodebuildExecutionRoleArn
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref CodeBuildSG
+        Subnets: !GetAtt CodeBuildVpc.Subnets
+        VpcId: !GetAtt CodeBuildVpc.VpcId
+      # Source configuration
+      Source:
+        Location: "https://github.com/sdc-pune/asid.git"
+        Type: GITHUB
+        BuildSpec: |+
+          version: 0.2
+          env:
+            shell: bash
+          proxy:
+            upload-artifacts: yes
+          phases:
+            install: # 1st
+              runtime-versions:
+                java: corretto8
+              commands:
+                - |
+                  # restart docker to populate proxy configuration
+                  if [ -f  /var/run/docker.pid ]; then kill -9 $(cat  /var/run/docker.pid); fi
+                  nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2 &
+                  timeout 15 sh -c "until docker info; do echo .; sleep 1; done"
+                # ensure that UPSTREAM_HTTPS_PROXY is configured on container startup
+                - export UPSTREAM_HTTPS_PROXY=$HTTPS_PROXY
+                # you may also define NO_PROXY / no_proxy
+                - aws s3 cp --request-payer=requester "s3://vws-downstream-proxy-artifact-bucket/vws-downstream-proxy-linux-amd64" vws-downstream-proxy
+                - chmod +x vws-downstream-proxy
+                - ls -al vws-downstream-proxy
+                # start proxy in background
+                - PROXY_PORT=8383 ./vws-downstream-proxy &
+                # ensure proxy is healthy before continuing build; will have non-zero exit code on failure
+                - PROXY_PORT=8383 ./vws-downstream-proxy wait-for-proxy
+                # default proxy configuration
+                - export HTTP_PROXY='http://localhost:8383'
+                - export HTTPS_PROXY='http://localhost:8383'
+                - export http_proxy='http://localhost:8383'
+                - export https_proxy='http://localhost:8383'
+                - echo Logging in to Amazon ECR...
+                - aws --version
+                - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $Account_Id.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+            pre_build: # 2nd
+              commands:
+                - REPOSITORY_URI=$Account_Id.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/vws-asid-auth
+                - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+                - IMAGE_TAG=build-asid-auth-$(echo $CODEBUILD_BUILD_ID | awk -F":" '{print $2}')
+            build: # 3rd
+              commands:
+                - cd asid_backend
+                - cat gradle/wrapper/gradle-wrapper.properties
+                - echo "" >>  gradle.properties
+                - echo "systemProp.https.proxyHost=$HTTPS_PROXY_HOST" >> gradle.properties
+                - echo "systemProp.https.proxyPort=$HTTPS_PROXY_PORT" >> gradle.properties
+                - echo "systemProp.https.proxyUser=$HTTPS_PROXY_USER" >> gradle.properties
+                - echo "systemProp.https.proxyPassword=$HTTPS_PROXY_PASSWORD" >> gradle.properties
+                - echo "systemProp.https.nonProxyHosts=$NO_PROXY" >> gradle.properties
+                - echo "systemProp.http.proxyUser=$HTTPS_PROXY_USER" >> gradle.properties
+                - echo "systemProp.http.proxyPassword=$HTTPS_PROXY_PASSWORD" >> gradle.properties
+                - echo 'systemProp.jdk.http.auth.tunneling.disabledSchemes=""' >> gradle.properties
+                - cat gradle.properties
+                - rm -f  /root/.gradle/caches/modules-2/modules-2.lock
+                - rm -fr /root/.gradle/caches/*/plugin-resolution/
+                - cd asid-auth
+                - ../gradlew clean
+                - ../gradlew build -x systemIntegrationTest -x pactTest --stacktrace
+                - echo $CODEBUILD_SRC_DIR
+                - ls -ltr build/libs
+                - cd ..    
+                - pwd
+                - docker build --platform linux/arm64 -t $REPOSITORY_URI:auth-service_latest -f asid-auth/Dockerfile .
+                - docker tag $REPOSITORY_URI:auth-service_latest $REPOSITORY_URI:$IMAGE_TAG
+            post_build: # 4th
+              commands:
+                - echo Build completed on `date`
+                - echo Pushing the Docker images...
+                - docker push $REPOSITORY_URI:auth-service_latest
+                - docker push $REPOSITORY_URI:$IMAGE_TAG
+                - echo Writing Image Definitions File...
+                - pwd
+                - printf '{"ImageURI":"%s"}' $REPOSITORY_URI:$IMAGE_TAG > imageDetail.json
+                # - aws ecs stop-task --cluster "asid-cluster" --task $(aws ecs list-tasks --cluster "asid-cluster" --service "auth-service-fargate-task-def-FargateService-K9AK2cBWuSbp" --output text --query taskArns[0])
+          
+          artifacts: # 5th
+            files:
+              - '**/*'
+            base-directory: $CODEBUILD_SRC_DIR/asid_backend/asid_backend/vanguard-templates/cloudformation/utility/codebuild-without-sonar
+
+Outputs:
+  AuthCodeBuildProject:
+    Description: AuthCodeBuildProject
+    Value: !Ref SharedVpcAuth
+    Export:
+      Name: 'AuthCodeBuildProject'

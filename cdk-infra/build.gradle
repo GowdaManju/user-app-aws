@@ -1,0 +1,33 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'com.myorg'
+version = '0.1'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+application {
+    mainClass = 'com.myorg.app.CdkInfraApp'
+}
+
+dependencies {
+    implementation 'software.amazon.awscdk:aws-cdk-lib:2.177.0'
+    implementation 'software.constructs:constructs:[10.5.0,11.0.0)'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.7.1'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+

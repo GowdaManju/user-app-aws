@@ -1,0 +1,85 @@
+
+
+# Real-World CDK CI/CD Pipeline Fl
+In a real production setup**CDK itself is deployed via a pipeli**. Here's how it works end-to-en
+# The Full Flow (Source → Build → Deploy Infrastructure → Deploy Ap
+
+Developer pushes code to GitHub/CodeCommit
+│
+▼
+┌─────────────────────────────────────────────────────────────┐
+│                    CodePipeline                              │
+│                                                              │
+│  Stage 1: SOURCE                                             │
+│  ├── Pull app code (Spring Boot Order Service)               │
+│  └── Pull infra code (CDK project)                           │
+│              │                                               │
+│              ▼                                               │
+│  Stage 2: BUILD (CodeBuild Project 1 — App Build)            │
+│  ├── mvn clean package / gradle build                        │
+│  ├── docker build -t order-service .                         │
+│  ├── docker tag → ECR repo URL                               │
+│  └── docker push → ECR                                       │
+│              │                                               │
+│              ▼                                               │
+│  Stage 3: CDK SYNTH (CodeBuild Project 2 — Infra Build)      │
+│  ├── cd cdk-infra                                            │
+│  ├── npm install -g aws-cdk  (or use CDK in Gradle)          │
+│  ├── cdk synth   ← generates CloudFormation templates        │
+│  └── Output: cdk.out/ (CloudFormation JSON)                  │
+│              │                                               │
+│              ▼                                               │
+│  Stage 4: CDK DEPLOY (CloudFormation Deploy)                 │
+│  ├── Deploy NetworkStack (VPC)                               │
+│  ├── Deploy OrderServiceStack (ECS + ALB + Fargate)          │
+│  │     └── Fargate pulls NEW image from ECR                  │
+│  └── ECS rolling update replaces old tasks with new ones     │
+│              │                                               │
+│              ▼                                               │
+│  Stage 5 (optional): APPROVAL + PROD DEPLOY                 │
+│  ├── Manual approval gate                                    │
+│  └── Deploy to prod account/region                           │
+└─────────────────────────────────────────────────────────────
+
+
+# What happens at each step in detai
+**Stage 2 — CodeBuil `buildspec.yl` for ap
+
+l
+version: 0.2
+phases:
+pre_build:
+commands:
+- echo Logging in to ECR...
+- aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REPO_URI
+build:
+commands:
+- echo Building Spring Boot app...
+- cd order-service
+- mvn clean package -DskipTests
+- docker build -t order-service .
+- docker tag order-service:latest $ECR_REPO_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION
+post_build:
+commands:
+- docker push $ECR_REPO_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION
+- printf '{"ImageURI":"%s"}' $ECR_REPO_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION > imageDetail.json
+artifacts:
+files:
+- imageDetail.jso
+
+# Sequence Diagram (timeline
+
+`
+Time ──────────────────────────────────────────────────►
+
+t=0     Git Push
+t=1min  CodePipeline triggered
+t=3min  App built + Docker image pushed to ECR
+t=5min  cdk synth → CloudFormation template generated
+t=7min  NetworkStack deployed (VPC exists)
+t=10min OrderServiceStack deployed
+├── ECS Cluster created
+├── ALB created
+├── Fargate task pulls image FROM ECR ← (new image!)
+└── Health check passes on /actuator/health
+t=12min ALB DNS is live → traffic flow
