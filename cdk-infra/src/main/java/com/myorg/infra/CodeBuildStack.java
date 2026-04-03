@@ -50,7 +50,7 @@ public class CodeBuildStack extends Stack {
                         .environment(env)
                         .role(codeBuildRole)
                         .buildSpec(BuildSpec.fromSourceFilename(
-                                "service/" + serviceName + "/buildspec.yml"
+                                "cdk-infra/src/main/java/com/myorg/service/" + serviceName.replace("-", "_") + "/buildspec.yml"
                         ))
                         .build();
 
@@ -74,7 +74,7 @@ public class CodeBuildStack extends Stack {
                         .environment(env)
                         .role(codeBuildRole)
                         .buildSpec(BuildSpec.fromSourceFilename(
-                                "User-Service/cdk-infra/src/main/java/com/myorg/"+"service/" + serviceName + "/buildspec.yml"
+                                "cdk-infra/src/main/java/com/myorg/service/" + serviceName.replace("-", "_") + "/buildspec.yml"
                         ))
                         .build();
             }
