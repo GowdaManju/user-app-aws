@@ -5,8 +5,6 @@ import com.myorg.infra.NetworkStack;
 import com.myorg.infra.ClusterStack;
 import com.myorg.infra.EcrStack;
 import com.myorg.infra.CodeBuildStack; // You need to implement this
-import com.myorg.service.order_service.OrderServiceStack;
-// import com.myorg.service.PaymentServiceStack; // Example for more services
 import software.amazon.awscdk.services.ecr.Repository;
 import java.util.*;
 
@@ -35,7 +33,7 @@ public class CdkInfraApp {
 
         // --- Service Stacks ---
         // Example: create a stack per service (expand as needed)
-//        new OrderServiceStack(app, "OrderServiceStack", clusterStack.cluster);
+//        new UserServiceStack(app, "OrderServiceStack", clusterStack.cluster);
         // new PaymentServiceStack(app, "PaymentServiceStack", clusterStack.cluster);
 
 

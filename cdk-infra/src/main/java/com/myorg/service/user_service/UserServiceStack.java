@@ -1,4 +1,4 @@
-package com.myorg.service.order_service;
+package com.myorg.service.user_service;
 
 import com.myorg.config.ServiceConfig;
 import software.amazon.awscdk.Stack;
@@ -6,9 +6,9 @@ import software.constructs.Construct;
 import software.amazon.awscdk.services.ecs.Cluster;
 import com.myorg.construct.FargateServiceConstruct;
 
-public class OrderServiceStack extends Stack {
+public class UserServiceStack extends Stack {
 
-    public OrderServiceStack(final Construct scope,
+    public UserServiceStack(final Construct scope,
                              final String id,
                              Cluster cluster) {
         super(scope, id);
