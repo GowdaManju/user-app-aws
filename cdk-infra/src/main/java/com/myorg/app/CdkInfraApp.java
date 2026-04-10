@@ -1,5 +1,6 @@
 package com.myorg.app;
 
+import com.myorg.service.user_service.UserServiceStack;
 import software.amazon.awscdk.App;
 import com.myorg.infra.NetworkStack;
 import com.myorg.infra.ClusterStack;
@@ -33,7 +34,7 @@ public class CdkInfraApp {
 
         // --- Service Stacks ---
         // Example: create a stack per service (expand as needed)
-//        new UserServiceStack(app, "OrderServiceStack", clusterStack.cluster);
+        new UserServiceStack(app, "UserServiceStack", clusterStack.cluster);
         // new PaymentServiceStack(app, "PaymentServiceStack", clusterStack.cluster);
 
 
