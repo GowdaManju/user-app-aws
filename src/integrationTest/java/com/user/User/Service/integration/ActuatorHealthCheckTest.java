@@ -15,6 +15,7 @@ class ActuatorHealthCheckTest {
     private int port;
 
     private RestClient restClient;
+    public static String HEALTH_ENDPOINT="/health";
 
     @BeforeEach
     void setUp() {
@@ -26,7 +27,7 @@ class ActuatorHealthCheckTest {
     @Test
     void healthEndpoint_ShouldReturnUp() {
         String response = restClient.get()
-                .uri("/health")
+                .uri(HEALTH_ENDPOINT)
                 .retrieve()
                 .body(String.class);
 
@@ -37,7 +38,7 @@ class ActuatorHealthCheckTest {
     @Test
     void healthEndpoint_ShouldContainDiskSpaceDetails() {
         String response = restClient.get()
-                .uri("/health")
+                .uri(HEALTH_ENDPOINT)
                 .retrieve()
                 .body(String.class);
 
@@ -48,7 +49,7 @@ class ActuatorHealthCheckTest {
     @Test
     void healthEndpoint_ShouldContainDbDetails() {
         String response = restClient.get()
-                .uri("/health")
+                .uri(HEALTH_ENDPOINT)
                 .retrieve()
                 .body(String.class);
 
