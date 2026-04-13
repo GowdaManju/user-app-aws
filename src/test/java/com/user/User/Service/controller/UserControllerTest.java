@@ -114,28 +114,29 @@ class UserControllerTest {
 
     @Test
     void updateUser_WhenUserExists_ShouldReturnUpdatedUser() {
-        User updatedUser = new User(1L, "updated@gmail.com", "newpass", "Manju Updated", "G");
-        when(userService.updateUser(eq(1L), any(User.class))).thenReturn(updatedUser);
+        UserRequestDto updatedUser = new UserRequestDto("updated@gmail.com", "newpass", "Manju Updated", "G");
+        User userToReturn = new User(1L, "updated@gmail.com","newpass", "Manju Updated", "G");
+        when(userService.updateUser(eq(1L), any(UserRequestDto.class))).thenReturn(userToReturn);
 
-        ResponseEntity<User> response = userController.updateUser(1L, updatedUser);
+        ResponseEntity<User> response = userController.updateUser(1L,updatedUser);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
         assertEquals("Manju Updated", response.getBody().getFirstName());
         assertEquals("updated@gmail.com", response.getBody().getEmail());
-        verify(userService, times(1)).updateUser(eq(1L), any(User.class));
+        verify(userService, times(1)).updateUser(eq(1L), any(UserRequestDto.class));
     }
 
     @Test
     void updateUser_WhenUserDoesNotExist_ShouldReturn404() {
-        User updatedUser = new User(null, "ghost@gmail.com", "pass", "Ghost", "User");
-        when(userService.updateUser(eq(99L), any(User.class)))
+        UserRequestDto updatedUsers = new UserRequestDto("updated@gmail.com", "newpass", "Manju Updated", "G");
+        when(userService.updateUser(eq(99L), any(UserRequestDto.class)))
                 .thenThrow(new RuntimeException("User not found with id: 99"));
 
-        ResponseEntity<User> response = userController.updateUser(99L, updatedUser);
+        ResponseEntity<User> response = userController.updateUser(99L, updatedUsers);
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        verify(userService, times(1)).updateUser(eq(99L), any(User.class));
+        verify(userService, times(1)).updateUser(eq(99L), any(UserRequestDto.class));
     }
 
     // ---- DELETE /users/{id} ----

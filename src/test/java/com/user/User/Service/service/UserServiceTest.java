@@ -7,7 +7,6 @@ import com.user.User.Service.util.Utils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -34,7 +33,6 @@ class UserServiceTest {
     @Mock
     private ModelMapper modelMapper;
 
-    @InjectMocks
     private UserService userService;
 
     private User user;
@@ -42,6 +40,7 @@ class UserServiceTest {
 
     @BeforeEach
     void setUp() {
+        userService = new UserService(userRepository, utils);
         user = new User(1L, "mn3118110@gmail.com", "password", "Manjunath", "Gowda");
         userRequestDto = new UserRequestDto("mn3118110@gmail.com", "password", "Manjunath", "Gowda");
     }
@@ -117,13 +116,16 @@ class UserServiceTest {
 
     @Test
     void updateUser_WhenUserExists_ShouldReturnUpdatedUser() {
-        User updatedDetails = new User(null, "updated@gmail.com", "newpass", "Manju Updated", "G");
+        UserRequestDto updateRequest = new UserRequestDto("updated@gmail.com", "newpass", "Manju Updated", "G");
+        User mappedDetails = new User(null, "updated@gmail.com", "newpass", "Manju Updated", "G");
         User updatedUser = new User(1L, "updated@gmail.com", "newpass", "Manju Updated", "G");
 
+        when(utils.getMapper()).thenReturn(modelMapper);
+        when(modelMapper.map(any(UserRequestDto.class), eq(User.class))).thenReturn(mappedDetails);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenReturn(updatedUser);
 
-        User result = userService.updateUser(1L, updatedDetails);
+        User result = userService.updateUser(1L, updateRequest);
 
         assertNotNull(result);
         assertEquals("Manju Updated", result.getFirstName());
@@ -134,11 +136,15 @@ class UserServiceTest {
 
     @Test
     void updateUser_WhenUserDoesNotExist_ShouldThrowException() {
-        User updatedDetails = new User(null, "ghost@gmail.com", "pass", "Ghost", "User");
+        UserRequestDto updateRequest = new UserRequestDto("ghost@gmail.com", "pass", "Ghost", "User");
+        User mappedDetails = new User(null, "ghost@gmail.com", "pass", "Ghost", "User");
+
+        when(utils.getMapper()).thenReturn(modelMapper);
+        when(modelMapper.map(any(UserRequestDto.class), eq(User.class))).thenReturn(mappedDetails);
         when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
         RuntimeException exception = assertThrows(RuntimeException.class,
-                () -> userService.updateUser(99L, updatedDetails));
+                () -> userService.updateUser(99L, updateRequest));
 
         assertEquals("User not found with id: 99", exception.getMessage());
         verify(userRepository, times(1)).findById(99L);

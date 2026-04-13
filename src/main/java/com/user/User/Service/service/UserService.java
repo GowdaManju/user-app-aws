@@ -33,7 +33,9 @@ public class UserService {
         return userRepository.findById(id);
     }
 
-    public User updateUser(Long id, User userDetails) {
+    public User updateUser(Long id, UserRequestDto userRequestDto) {
+
+        User userDetails=utils.getMapper().map(userRequestDto,User.class);
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
         user.setEmail(userDetails.getEmail());
