@@ -1,7 +1,9 @@
 package com.user.User.Service.service;
 
+import com.user.User.Service.dto.UserRequestDto;
 import com.user.User.Service.repository.UserRepository;
 import com.user.User.Service.user.User;
+import com.user.User.Service.util.Utils;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -10,13 +12,16 @@ import java.util.Optional;
 @Service
 public class UserService {
 
+    private final Utils utils;
     private final UserRepository userRepository;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, Utils utils) {
         this.userRepository = userRepository;
+        this.utils = utils;
     }
 
-    public User createUser(User user) {
+    public User createUser(UserRequestDto userRequestDto) {
+       User user=utils.getMapper().map(userRequestDto,User.class);
         return userRepository.save(user);
     }
 

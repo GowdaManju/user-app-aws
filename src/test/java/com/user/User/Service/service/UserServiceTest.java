@@ -1,7 +1,9 @@
 package com.user.User.Service.service;
 
+import com.user.User.Service.dto.UserRequestDto;
 import com.user.User.Service.repository.UserRepository;
 import com.user.User.Service.user.User;
+import com.user.User.Service.util.Utils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -9,12 +11,15 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.modelmapper.ModelMapper;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -23,28 +28,42 @@ class UserServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private Utils utils;
+
+    @Mock
+    private ModelMapper modelMapper;
+
     @InjectMocks
     private UserService userService;
 
     private User user;
+    private UserRequestDto userRequestDto;
 
     @BeforeEach
     void setUp() {
         user = new User(1L, "mn3118110@gmail.com", "password", "Manjunath", "Gowda");
+        userRequestDto = new UserRequestDto("mn3118110@gmail.com", "password", "Manjunath", "Gowda");
     }
 
     // ---- createUser tests ----
 
     @Test
     void createUser_ShouldReturnSavedUser() {
+        User mappedUser = new User(null, "mn3118110@gmail.com", "password", "Manjunath", "Gowda");
+
+        when(utils.getMapper()).thenReturn(modelMapper);
+        when(modelMapper.map(any(UserRequestDto.class), eq(User.class))).thenReturn(mappedUser);
         when(userRepository.save(any(User.class))).thenReturn(user);
 
-        User saved = userService.createUser(user);
+        User saved = userService.createUser(userRequestDto);
 
         assertNotNull(saved);
         assertEquals("mn3118110@gmail.com", saved.getEmail());
         assertEquals("Manjunath", saved.getFirstName());
         assertEquals("Gowda", saved.getLastName());
+        verify(utils, times(1)).getMapper();
+        verify(modelMapper, times(1)).map(any(UserRequestDto.class), eq(User.class));
         verify(userRepository, times(1)).save(any(User.class));
     }
 

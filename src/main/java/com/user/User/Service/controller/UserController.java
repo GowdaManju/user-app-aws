@@ -1,5 +1,6 @@
 package com.user.User.Service.controller;
 
+import com.user.User.Service.dto.UserRequestDto;
 import com.user.User.Service.service.UserService;
 import com.user.User.Service.user.User;
 import org.springframework.http.HttpStatus;
@@ -19,7 +20,7 @@ public class UserController {
     }
 
     @PostMapping
-    public ResponseEntity<User> createUser(@RequestBody User user) {
+    public ResponseEntity<User> createUser(@RequestBody UserRequestDto user) {
         User created = userService.createUser(user);
         return new ResponseEntity<>(created, HttpStatus.CREATED);
     }

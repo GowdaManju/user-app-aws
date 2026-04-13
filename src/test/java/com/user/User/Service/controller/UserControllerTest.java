@@ -1,5 +1,6 @@
 package com.user.User.Service.controller;
 
+import com.user.User.Service.dto.UserRequestDto;
 import com.user.User.Service.service.UserService;
 import com.user.User.Service.user.User;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,26 +31,29 @@ class UserControllerTest {
     private UserController userController;
 
     private User user;
+    private UserRequestDto userRequestDto;
 
     @BeforeEach
     void setUp() {
+
         user = new User(1L, "mn3118110@gmail.com", "password", "Manjunath", "Gowda");
+        userRequestDto =new UserRequestDto("mn3118110@gmail.com", "password", "Manjunath", "Gowda");
     }
 
     // ---- POST /users ----
 
     @Test
     void createUser_ShouldReturnCreatedUser() {
-        when(userService.createUser(any(User.class))).thenReturn(user);
+        when(userService.createUser(any(UserRequestDto.class))).thenReturn(user);
 
-        ResponseEntity<User> response = userController.createUser(user);
+        ResponseEntity<User> response = userController.createUser(userRequestDto);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         assertNotNull(response.getBody());
         assertEquals("Manjunath", response.getBody().getFirstName());
         assertEquals("Gowda", response.getBody().getLastName());
         assertEquals("mn3118110@gmail.com", response.getBody().getEmail());
-        verify(userService, times(1)).createUser(any(User.class));
+        verify(userService, times(1)).createUser(any(UserRequestDto.class));
     }
 
     // ---- GET /users ----
