@@ -3,6 +3,7 @@ plugins {
 	id 'org.springframework.boot' version '3.3.5'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'org.sonarqube' version '5.1.0.4882'
+	id 'jacoco'
 }
 
 //sonar {
@@ -22,6 +23,20 @@ description = 'service discovery'
 java {
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+jacoco {
+	toolVersion = "0.8.11"
+}
+tasks.test {
+	useJUnitPlatform()
+	finalizedBy jacocoTestReport   // 👈 ensures report is generated
+}
+jacocoTestReport {
+	dependsOn test
+	reports {
+		xml.required = true   // 👈 Sonar needs XML
+		html.required = true
 	}
 }
 
@@ -143,4 +158,5 @@ tasks.named('check') {
 	dependsOn tasks.named('systemIntegrationTest')
 	// NOTE: smokeTest is NOT part of 'check' — it runs only during deployment
 }
+
 
