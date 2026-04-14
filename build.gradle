@@ -6,6 +6,27 @@ plugins {
 	id 'jacoco'
 }
 
+jacoco {
+	toolVersion = "0.8.11"
+}
+
+tasks.test {
+	useJUnitPlatform()
+	finalizedBy tasks.jacocoTestReport
+}
+
+tasks.jacocoTestReport {
+	dependsOn test
+
+	reports {
+		xml.required = true
+		html.required = true
+		csv.required = false
+	}
+}
+tasks.named("sonar") {
+	dependsOn tasks.jacocoTestReport
+}
 //sonar {
 //	properties {
 //		property "sonar.projectKey", System.getenv("SONAR_PROJECT_KEY") ?: "user-service"
@@ -25,20 +46,7 @@ java {
 		languageVersion = JavaLanguageVersion.of(17)
 	}
 }
-jacoco {
-	toolVersion = "0.8.11"
-}
-tasks.test {
-	useJUnitPlatform()
-	finalizedBy jacocoTestReport   // 👈 ensures report is generated
-}
-jacocoTestReport {
-	dependsOn test
-	reports {
-		xml.required = true   // 👈 Sonar needs XML
-		html.required = true
-	}
-}
+
 
 repositories {
 	mavenCentral()
